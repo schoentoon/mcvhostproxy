@@ -16,6 +16,7 @@
  */
 
 #include "config.h"
+#include "listener.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -26,6 +27,8 @@
 static struct config {
   struct listener** listeners;
 } global_config;
+
+struct config* config = &global_config;
 
 struct listener* new_listener(char* address) {
   struct listener* output = malloc(sizeof(struct listener));
@@ -84,7 +87,7 @@ int parse_config(char* filename) {
     fprintf(stderr, "Error '%s' while opening '%s'.\n", strerror(errno), filename);
     return 0;
   }
-  bzero(&global_config, sizeof(struct config));
+  bzero(config, sizeof(struct config));
   char linebuffer[BUFSIZ];
   unsigned int line_count = 0;
   while (fgets(linebuffer, sizeof(linebuffer), f)) {
@@ -97,12 +100,12 @@ int parse_config(char* filename) {
     struct vhost* vhost = NULL;
     if (sscanf(linebuffer, "%[a-z_] = %[^\t\n]", key, value) == 2) {
       if (strcmp(key, "listener") == 0) {
-        if (global_config.listeners == NULL) {
+        if (config->listeners == NULL) {
           listener = new_listener(value);
           if (listener) {
-            global_config.listeners = malloc(sizeof(struct listener) * 2);
-            bzero(global_config.listeners, sizeof(struct listener) * 2);
-            global_config.listeners[0] = listener;
+            config->listeners = malloc(sizeof(struct listener) * 2);
+            bzero(config->listeners, sizeof(struct listener) * 2);
+            config->listeners[0] = listener;
           } else {
             fprintf(stderr, "%s is not valid.", value);
             return 0;
@@ -111,10 +114,10 @@ int parse_config(char* filename) {
           listener = new_listener(value);
           if (listener) {
             size_t i = 0;
-            while (global_config.listeners[++i]);
-            global_config.listeners = realloc(global_config.listeners, sizeof(struct listener) * (i + 2));
-            global_config.listeners[i] = listener;
-            global_config.listeners[++i] = NULL;
+            while (config->listeners[++i]);
+            config->listeners = realloc(config->listeners, sizeof(struct listener) * (i + 2));
+            config->listeners[i] = listener;
+            config->listeners[++i] = NULL;
           } else {
             fprintf(stderr, "%s is not valid.", value);
             return 0;
@@ -142,4 +145,14 @@ int parse_config(char* filename) {
     }
   }
   return line_count;
+};
+
+int dispatch_config(struct event_base* base) {
+  size_t i;
+  for (i = 0; config->listeners[i]; i++) {
+    int ret = init_listener(base, config->listeners[i]);
+    if (ret != 0)
+      return ret;
+  }
+  return 0;
 };

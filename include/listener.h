@@ -15,32 +15,13 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
+#ifndef _LISTENER_H
+#define _LISTENER_H
 
-#include <arpa/inet.h>
+#include "config.h"
 
 #include <event2/event.h>
 
-struct vhost {
-  char* vhost;
-  struct sockaddr_in* address;
-};
+int init_listener(struct event_base* base, struct listener* listener);
 
-struct listener {
-  struct sockaddr_in* address;
-  struct evconnlistener* listener;
-  struct vhost** vhosts;
-};
-
-struct listener* new_listener(char* address);
-
-struct vhost* new_vhost(char* vhost);
-
-int fill_in_vhost_address(struct vhost* vhost, char* address);
-
-int parse_config(char* filename);
-
-int dispatch_config(struct event_base* base);
-
-#endif //_CONFIG_H
+#endif //_LISTENER_H

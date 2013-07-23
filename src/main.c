@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
     }
   }
   event_base = event_base_new();
-  while (1)
-    event_base_dispatch(event_base);
+  if (dispatch_config(event_base) == 0)
+    while (event_base_dispatch(event_base) == 0);
   return 0;
 };
