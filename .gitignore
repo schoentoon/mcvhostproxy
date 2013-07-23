@@ -21,3 +21,5 @@ build/
 
 *.config
 !example.config
+
+tmp*

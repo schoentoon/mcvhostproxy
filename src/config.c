@@ -16,6 +16,8 @@
  */
 
 #include "config.h"
+
+#include "debug.h"
 #include "listener.h"
 
 #include <errno.h>
@@ -36,10 +38,6 @@ struct listener* new_listener(char* address) {
     return NULL;
   bzero(output, sizeof(struct listener));
   output->address = malloc(sizeof(struct sockaddr_in));
-  if (!output->address) {
-    free(output);
-    return NULL;
-  }
   memset(output->address, 0, sizeof(struct sockaddr_in));
   char ip[BUFSIZ];
   in_port_t port;
@@ -90,14 +88,14 @@ int parse_config(char* filename) {
   bzero(config, sizeof(struct config));
   char linebuffer[BUFSIZ];
   unsigned int line_count = 0;
+  struct listener* listener = NULL;
+  struct vhost* vhost = NULL;
   while (fgets(linebuffer, sizeof(linebuffer), f)) {
     line_count++;
     if (linebuffer[0] == '#' || linebuffer[1] == 1)
       continue;
     char key[BUFSIZ];
     char value[BUFSIZ];
-    struct listener* listener = NULL;
-    struct vhost* vhost = NULL;
     if (sscanf(linebuffer, "%[a-z_] = %[^\t\n]", key, value) == 2) {
       if (strcmp(key, "listener") == 0) {
         if (config->listeners == NULL) {

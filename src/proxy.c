@@ -49,23 +49,20 @@ void preproxy_readcb(struct bufferevent* bev, void* context) {
   struct evbuffer* input = bufferevent_get_input(bev);
   size_t length = evbuffer_get_length(input);
   unsigned char buffer[length + 1];
-  if (length > 5 && evbuffer_copyout(input, buffer, length) == length) {
+  if (evbuffer_copyout(input, buffer, length) == length) {
     buffer[length] = '\0';
-    if (buffer[0] == 0x02 && buffer[1] == 0x3d && buffer[2] == 0x00 && buffer[3] == 0x0a && buffer[4] == 0x00) {
+    if (buffer[0] == 0x02) {
       size_t i;
       for (i = 5; i < length; i++) {
         if (i % 2 == 1) {
           if (!isalnum(buffer[i]))
-            goto disconnect;
+            break;
         } else if (buffer[i] != 0x00)
           goto disconnect;
-        else if (buffer[i] == 0x00 && (buffer[i+1] == 0x1d && buffer[i+1] == 0x0d))
-          break;
       }
       char hostbuf[BUFSIZ];
       char *h = hostbuf;
-      i += 2;
-      for (; i < length; i++) {
+      for (i += 2; i < length; i++) {
         if (i % 2 == 1) {
           if (isascii(buffer[i])) {
             *(h++) = buffer[i];
@@ -75,11 +72,27 @@ void preproxy_readcb(struct bufferevent* bev, void* context) {
         } else if (buffer[i] != 0x00)
           goto disconnect;
       }
-      DEBUG(255, "Hostname: %s", hostbuf);
+      for (i = 0; listener->vhosts[i] != NULL; i++) {
+        struct vhost* vhost = listener->vhosts[i];
+        if (proxy->proxied_connection == NULL && strcmp(vhost->vhost, hostbuf) == 0) {
+          struct event_base* base = bufferevent_get_base(bev);
+          proxy->proxied_connection = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
+          struct timeval timeout = { 10, 0 };
+          bufferevent_set_timeouts(proxy->proxied_connection, &timeout, NULL);
+          bufferevent_socket_connect(proxy->proxied_connection, (struct sockaddr*) vhost->address, sizeof(struct sockaddr_in));
+          bufferevent_setcb(proxy->proxied_connection, proxied_conn_readcb, NULL, free_on_disconnect_eventcb, proxy);
+          bufferevent_enable(proxy->proxied_connection, EV_READ);
+          bufferevent_setcb(bev, proxy_readcb, NULL, free_on_disconnect_eventcb, proxy);
+          struct evbuffer* proxied_output = bufferevent_get_output(proxy->proxied_connection);
+          bufferevent_read_buffer(bev, proxied_output);
+          break;
+        }
+      }
     }
   }
   return;
 disconnect:
+  DEBUG(255, "AUCH, someone did goto disconnect :(");
   free_on_disconnect_eventcb(bev, BEV_FINISHED, context);
 };
 
