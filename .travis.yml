@@ -1,0 +1,15 @@
+language: c
+compiler:
+  - gcc
+  - clang
+before_install:
+  - sudo apt-get update -qq >/dev/null 2>&1
+  - sudo apt-get install -qq libevent-dev >/dev/null 2>&1
+script:
+  - make CC=$CC
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.org#schoentoon"
+    on_success: always
+    on_failure: always
