@@ -17,6 +17,8 @@
 
 #include "listener.h"
 
+#include "proxy.h"
+
 #include <errno.h>
 #include <string.h>
 
@@ -46,5 +48,9 @@ static void listener_callback(struct evconnlistener* evconn, evutil_socket_t fd
   if (!bev)
     event_base_loopbreak(base);
   else {
+    struct listener* listener = arg;
+    struct proxyy* proxyy = new_proxy(listener, bev);
+    bufferevent_setcb(bev, preproxy_readcb, NULL, free_on_disconnect_eventcb, proxyy);
+    bufferevent_enable(bev, EV_READ);
   }
 };

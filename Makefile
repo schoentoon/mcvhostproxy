@@ -3,7 +3,7 @@ INC    := -Iinclude $(INC)
 LFLAGS := -levent
 CC     := gcc
 BINARY := mcvhost-proxy
-DEPS   := build/main.o build/debug.o build/config.o build/listener.o
+DEPS   := build/main.o build/debug.o build/config.o build/listener.o build/proxy.o
 
 .PHONY: all clean
 
@@ -23,6 +23,9 @@ build/config.o: src/config.c include/config.h
 
 build/listener.o: src/listener.c include/listener.h
 	$(CC) $(CFLAGS) $(INC) -c -o build/listener.o src/listener.c
+
+build/proxy.o: src/proxy.c include/proxy.h
+	$(CC) $(CFLAGS) $(INC) -c -o build/proxy.o src/proxy.c
 
 bin/$(BINARY): $(DEPS)
 	$(CC) $(CFLAGS) $(INC) -o bin/$(BINARY) $(DEPS) $(LFLAGS)
