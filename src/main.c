@@ -16,6 +16,7 @@
  */
 
 #include "debug.h"
+#include "config.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -28,6 +29,7 @@
 
 static const struct option g_LongOpts[] = {
   { "help",       no_argument,       0, 'h' },
+  { "config",     required_argument, 0, 'c' },
   { "debug",      optional_argument, 0, 'D' },
   { 0, 0, 0, 0 }
 };
@@ -37,6 +39,7 @@ struct event_base* event_base = NULL;
 static int usage(char* program) {
   fprintf(stderr, "USAGE: %s [options]\n", program);
   fprintf(stderr, "-h, --help\t\tShow this help message.\n");
+  fprintf(stderr, "-c, --config\t\tUse this config file.\n");
   fprintf(stderr, "-D, --debug\t\tIncrease debug level.\n");
   fprintf(stderr, "\t\t\tYou can also directly set a certain debug level with -D5\n");
   return 0;
@@ -44,10 +47,14 @@ static int usage(char* program) {
 
 int main(int argc, char** argv) {
   int arg, optindex;
-  while ((arg = getopt_long(argc, argv, "hD::", g_LongOpts, &optindex)) != -1) {
+  while ((arg = getopt_long(argc, argv, "hc:D::", g_LongOpts, &optindex)) != -1) {
     switch (arg) {
     case 'h':
       return usage(argv[0]);
+    case 'c':
+      if (parse_config(optarg) == 0)
+        return 1;
+      break;
     case 'D':
       if (optarg) {
         errno = 0;
