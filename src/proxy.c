@@ -99,12 +99,12 @@ void preproxy_readcb(struct bufferevent* bev, void* context) {
           break;
         }
       }
-      /* Send a proper no such server message from here if we're still not proxied */
+      if (proxy->proxied_connection == NULL)
+        goto disconnect;
     }
   }
   return;
 disconnect:
-  DEBUG(255, "AUCH, someone did goto disconnect :("); /* TODO send a message from the config to the client here. */
   instant_disconnect(bev, context);
 };
 
