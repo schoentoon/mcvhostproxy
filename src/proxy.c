@@ -19,11 +19,11 @@
 
 #include "debug.h"
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <event2/buffer.h>
-#include <ctype.h>
 
 struct proxyy* new_proxy(struct listener* listener, struct bufferevent* bev) {
   struct proxyy* output = malloc(sizeof(struct proxyy));
@@ -43,11 +43,19 @@ void disconnect_after_write(struct bufferevent* bev, void* context) {
     bufferevent_free(bev);
 };
 
+void instant_disconnect(struct bufferevent* bev, void* context) {
+  free_on_disconnect_eventcb(bev, BEV_FINISHED, context);
+};
+
 void preproxy_readcb(struct bufferevent* bev, void* context) {
   struct proxyy* proxy = context;
   struct listener* listener = proxy->listener;
   struct evbuffer* input = bufferevent_get_input(bev);
-  size_t length = evbuffer_get_length(input);
+  const size_t length = evbuffer_get_length(input);
+  if (length > 1024) { /* If the length is higher than 1024 it probably isn't valid at all */
+    instant_disconnect(bev, context); /* I came to this by basically grabbing the 256 from max hostname times 2 */
+    return; /* because of the '\0' in between and that times 2 again for extra stuff */
+  }
   unsigned char buffer[length + 1];
   if (evbuffer_copyout(input, buffer, length) == length) {
     buffer[length] = '\0';
@@ -60,10 +68,13 @@ void preproxy_readcb(struct bufferevent* bev, void* context) {
         } else if (buffer[i] != 0x00)
           goto disconnect;
       }
-      char hostbuf[BUFSIZ];
-      char *h = hostbuf;
+      char hostbuf[256]; /* A valid hostname can be 255 characters long */
+      char *h = hostbuf; /* https://tools.ietf.org/html/rfc1035 section 2.3.4 */
+      char *mh = hostbuf + sizeof(hostbuf);
       for (i += 2; i < length; i++) {
         if (i % 2 == 1) {
+          if (h > mh)
+            goto disconnect;
           if (isascii(buffer[i])) {
             *(h++) = buffer[i];
             if (buffer[i] == 0x00)
@@ -88,12 +99,13 @@ void preproxy_readcb(struct bufferevent* bev, void* context) {
           break;
         }
       }
+      /* Send a proper no such server message from here if we're still not proxied */
     }
   }
   return;
 disconnect:
-  DEBUG(255, "AUCH, someone did goto disconnect :(");
-  free_on_disconnect_eventcb(bev, BEV_FINISHED, context);
+  DEBUG(255, "AUCH, someone did goto disconnect :("); /* TODO send a message from the config to the client here. */
+  instant_disconnect(bev, context);
 };
 
 void proxy_readcb(struct bufferevent* bev, void* context) {
