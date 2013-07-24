@@ -140,6 +140,7 @@ void free_on_disconnect_eventcb(struct bufferevent* bev, short events, void* con
           bufferevent_enable(to_disconnect_later, EV_WRITE);
         }
       }
-    }
+    } else
+      bufferevent_free(bev);
   }
 };
