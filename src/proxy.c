@@ -101,19 +101,54 @@ void preproxy_readcb(struct bufferevent* bev, void* context) {
       }
       if (proxy->proxied_connection == NULL)
         goto disconnect;
-    } else if (buffer[0] == 0xFE && length > 5) {
-      if (listener->ping_mode == FORWARD_PING) {
-        static const unsigned char PING_DATA[] = { 0xFE, 0x01, 0xFA, 0x00, 0x0B, 0x00, 0x4D, 0x00, 0x43, 0x00
-                                                , 0x7C, 0x00, 0x50, 0x00, 0x69, 0x00, 0x6E, 0x00, 0x67, 0x00
-                                                , 0x48, 0x00, 0x6F, 0x00, 0x73, 0x00, 0x74, 0x00 };
-        static const size_t PING_DATA_LEN = sizeof(PING_DATA) / sizeof(char);
-        size_t i;
-        for (i = 0; i < PING_DATA_LEN; i++) {
-          if (buffer[i] != PING_DATA[i])
-            goto disconnect;
+    } else if (buffer[0] == 0xFE && length > 28) {
+      static const unsigned char PING_DATA[] = { 0xFE, 0x01, 0xFA, 0x00, 0x0B, 0x00, 0x4D, 0x00, 0x43, 0x00
+                                               , 0x7C, 0x00, 0x50, 0x00, 0x69, 0x00, 0x6E, 0x00, 0x67, 0x00
+                                               , 0x48, 0x00, 0x6F, 0x00, 0x73, 0x00, 0x74, 0x00 };
+      static const size_t PING_DATA_LEN = sizeof(PING_DATA) / sizeof(unsigned char);
+      size_t i;
+      for (i = 0; i < PING_DATA_LEN; i++) {
+        if (buffer[i] != PING_DATA[i])
+          goto disconnect;
+      }
+      while (buffer[++i]);
+      while (buffer[++i]);
+      if (listener->ping_mode) {
+        /* Protocol version in this reply is hardcoded to 74 (1.6.2), this is the 0x37, 0x00, 0x34 part */
+        static const unsigned char BEGIN_REPLY[] = { 0xFF, 0x00, 0x28, 0x00, 0xA7, 0x00, 0x31, 0x00, 0x00
+                                                   , 0x00, 0x37, 0x00, 0x34, 0x00, 0x00 };
+        struct evbuffer* output = bufferevent_get_output(bev);
+        evbuffer_add(output, &BEGIN_REPLY, sizeof(BEGIN_REPLY) / sizeof(unsigned char));
+        static const unsigned char NULL_ARRAY[] = { 0x00 };
+        char* p;
+        for (p = listener->ping_mode->version; *p; p++) {
+          evbuffer_add(output, NULL_ARRAY, 1);
+          evbuffer_add(output, p, 1);
         }
-        while (buffer[++i]);
-        while (buffer[++i]);
+        evbuffer_add(output, NULL_ARRAY, 1);
+        evbuffer_add(output, NULL_ARRAY, 1);
+        for (p = listener->ping_mode->motd; *p; p++) {
+          evbuffer_add(output, NULL_ARRAY, 1);
+          evbuffer_add(output, p, 1);
+        }
+        evbuffer_add(output, NULL_ARRAY, 1);
+        evbuffer_add(output, NULL_ARRAY, 1);
+        char smallbuf[32];
+        snprintf(smallbuf, sizeof(smallbuf), "%d", listener->ping_mode->numplayers);
+        for (p = smallbuf; *p; p++) {
+          evbuffer_add(output, NULL_ARRAY, 1);
+          evbuffer_add(output, p, 1);
+        }
+        evbuffer_add(output, NULL_ARRAY, 1);
+        evbuffer_add(output, NULL_ARRAY, 1);
+        snprintf(smallbuf, sizeof(smallbuf), "%d", listener->ping_mode->maxplayers);
+        for (p = smallbuf; *p; p++) {
+          evbuffer_add(output, NULL_ARRAY, 1);
+          evbuffer_add(output, p, 1);
+        }
+        bufferevent_setcb(bev, NULL, disconnect_after_write, free_on_disconnect_eventcb, NULL);
+        bufferevent_enable(bev, EV_WRITE);
+      } else if (listener->ping_mode == FORWARD_PING) {
         char hostbuf[256]; /* A valid hostname can be 255 characters long */
         char *h = hostbuf; /* https://tools.ietf.org/html/rfc1035 section 2.3.4 */
         char *mh = hostbuf + sizeof(hostbuf);

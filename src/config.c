@@ -127,6 +127,7 @@ int parse_config(char* filename) {
         else if (strcmp(value, "static") == 0) {
           listener->ping_mode = malloc(sizeof(struct ping_mode));
           bzero(listener->ping_mode, sizeof(struct ping_mode));
+          listener->ping_mode->motd = "A Minecraft Server";
         } else {
           fprintf(stderr, "'%s' is invalid for pingmode, only 'forward' and 'static' are valid.\n", value);
           return 0;
@@ -150,10 +151,7 @@ int parse_config(char* filename) {
           return 0;
         }
       } else if (listener && listener->ping_mode && listener->ping_mode != FORWARD_PING) {
-        if (strcmp(key, "motd") == 0) {
-          free(listener->ping_mode->motd);
-          listener->ping_mode->motd = strdup(value);
-        } else if (strcmp(key, "version") == 0) {
+        if (strcmp(key, "version") == 0) {
           free(listener->ping_mode->version);
           listener->ping_mode->version = strdup(value);
         } else if (strcmp(key, "numplayers") == 0)
