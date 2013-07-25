@@ -105,7 +105,7 @@ int parse_config(char* filename) {
             bzero(config->listeners, sizeof(struct listener) * 2);
             config->listeners[0] = listener;
           } else {
-            fprintf(stderr, "%s is not valid.", value);
+            fprintf(stderr, "%s is not valid.\n", value);
             return 0;
           }
         } else {
@@ -117,9 +117,19 @@ int parse_config(char* filename) {
             config->listeners[i] = listener;
             config->listeners[++i] = NULL;
           } else {
-            fprintf(stderr, "%s is not valid.", value);
+            fprintf(stderr, "%s is not valid.\n", value);
             return 0;
           }
+        }
+      } else if (listener && strcmp(key, "pingmode") == 0) {
+        if (strcmp(value, "forward") == 0)
+          listener->ping_mode = FORWARD_PING;
+        else if (strcmp(value, "static") == 0) {
+          listener->ping_mode = malloc(sizeof(struct ping_mode));
+          bzero(listener->ping_mode, sizeof(struct ping_mode));
+        } else {
+          fprintf(stderr, "'%s' is invalid for pingmode, only 'forward' and 'static' are valid.\n", value);
+          return 0;
         }
       } else if (listener && strcmp(key, "vhost") == 0) {
         vhost = new_vhost(value);
@@ -136,9 +146,23 @@ int parse_config(char* filename) {
         }
       } else if (vhost && strcmp(key, "internaladdress") == 0) {
         if (fill_in_vhost_address(vhost, value) == 0) {
-          fprintf(stderr, "%s is not valid.", value);
+          fprintf(stderr, "%s is not valid.\n", value);
           return 0;
         }
+      } else if (listener && listener->ping_mode && listener->ping_mode != FORWARD_PING) {
+        if (strcmp(key, "motd") == 0) {
+          free(listener->ping_mode->motd);
+          listener->ping_mode->motd = strdup(value);
+        } else if (strcmp(key, "version") == 0) {
+          free(listener->ping_mode->version);
+          listener->ping_mode->version = strdup(value);
+        } else if (strcmp(key, "numplayers") == 0)
+          listener->ping_mode->numplayers = atoi(value);
+        else if (strcmp(key, "maxplayers") == 0)
+          listener->ping_mode->maxplayers = atoi(value);
+        DEBUG(255, "motd: %s", listener->ping_mode->motd);
+        DEBUG(255, "version: %s", listener->ping_mode->version);
+        DEBUG(255, "%d/%d", listener->ping_mode->numplayers, listener->ping_mode->maxplayers);
       }
     }
   }

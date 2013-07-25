@@ -22,6 +22,15 @@
 
 #include <event2/event.h>
 
+#define FORWARD_PING ((struct ping_mode*) -1)
+
+struct ping_mode {
+  char* motd;
+  char* version;
+  unsigned short numplayers;
+  unsigned short maxplayers;
+};
+
 struct vhost {
   char* vhost;
   struct sockaddr_in* address;
@@ -31,6 +40,7 @@ struct listener {
   struct sockaddr_in* address;
   struct evconnlistener* listener;
   struct vhost** vhosts;
+  struct ping_mode* ping_mode;
 };
 
 struct listener* new_listener(char* address);
