@@ -22,7 +22,7 @@
 
 #include <event2/event.h>
 
-#define FORWARD_PING ((struct ping_mode*) -1)
+#define FORWARD_PING ((struct ping_mode*) NULL)
 
 struct ping_mode {
   char* motd;

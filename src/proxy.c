@@ -101,6 +101,53 @@ void preproxy_readcb(struct bufferevent* bev, void* context) {
       }
       if (proxy->proxied_connection == NULL)
         goto disconnect;
+    } else if (buffer[0] == 0xFE && length > 5) {
+      if (listener->ping_mode == FORWARD_PING) {
+        static const unsigned char PING_DATA[] = { 0xFE, 0x01, 0xFA, 0x00, 0x0B, 0x00, 0x4D, 0x00, 0x43, 0x00
+                                                , 0x7C, 0x00, 0x50, 0x00, 0x69, 0x00, 0x6E, 0x00, 0x67, 0x00
+                                                , 0x48, 0x00, 0x6F, 0x00, 0x73, 0x00, 0x74, 0x00 };
+        static const size_t PING_DATA_LEN = sizeof(PING_DATA) / sizeof(char);
+        size_t i;
+        for (i = 0; i < PING_DATA_LEN; i++) {
+          if (buffer[i] != PING_DATA[i])
+            goto disconnect;
+        }
+        while (buffer[++i]);
+        while (buffer[++i]);
+        char hostbuf[256]; /* A valid hostname can be 255 characters long */
+        char *h = hostbuf; /* https://tools.ietf.org/html/rfc1035 section 2.3.4 */
+        char *mh = hostbuf + sizeof(hostbuf);
+        for (i++; i < length; i++) {
+          if (i % 2 == 1) {
+            if (h > mh)
+              goto disconnect;
+            if (isascii(buffer[i])) {
+              *(h++) = buffer[i];
+              if (buffer[i] == 0x00)
+                break;
+            }
+          } else if (buffer[i] != 0x00)
+            goto disconnect;
+        }
+        for (i = 0; listener->vhosts[i] != NULL; i++) {
+          struct vhost* vhost = listener->vhosts[i];
+          if (proxy->proxied_connection == NULL && strcmp(vhost->vhost, hostbuf) == 0) {
+            struct event_base* base = bufferevent_get_base(bev);
+            proxy->proxied_connection = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
+            struct timeval timeout = { 10, 0 };
+            bufferevent_set_timeouts(proxy->proxied_connection, &timeout, NULL);
+            bufferevent_socket_connect(proxy->proxied_connection, (struct sockaddr*) vhost->address, sizeof(struct sockaddr_in));
+            bufferevent_setcb(proxy->proxied_connection, proxied_conn_readcb, NULL, free_on_disconnect_eventcb, proxy);
+            bufferevent_enable(proxy->proxied_connection, EV_READ);
+            bufferevent_setcb(bev, proxy_readcb, NULL, free_on_disconnect_eventcb, proxy);
+            struct evbuffer* proxied_output = bufferevent_get_output(proxy->proxied_connection);
+            bufferevent_read_buffer(bev, proxied_output);
+            break;
+          }
+        }
+        if (proxy->proxied_connection == NULL)
+          goto disconnect;
+      }
     }
   }
   return;
