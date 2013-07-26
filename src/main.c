@@ -42,7 +42,7 @@ static int usage(char* program) {
   fprintf(stderr, "-c, --config\t\tUse this config file.\n");
   fprintf(stderr, "-D, --debug\t\tIncrease debug level.\n");
   fprintf(stderr, "\t\t\tYou can also directly set a certain debug level with -D5\n");
-  return 0;
+  return 1;
 };
 
 int main(int argc, char** argv) {
@@ -71,5 +71,7 @@ int main(int argc, char** argv) {
   event_base = event_base_new();
   if (dispatch_config(event_base) == 0)
     while (event_base_dispatch(event_base) == 0);
+  else
+    return usage(argv[0]);
   return 0;
 };

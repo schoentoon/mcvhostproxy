@@ -168,11 +168,16 @@ int parse_config(char* filename) {
 };
 
 int dispatch_config(struct event_base* base) {
-  size_t i;
-  for (i = 0; config->listeners[i]; i++) {
-    int ret = init_listener(base, config->listeners[i]);
-    if (ret != 0)
-      return ret;
+  if (config->listeners) {
+    size_t i;
+    for (i = 0; config->listeners[i]; i++) {
+      int ret = init_listener(base, config->listeners[i]);
+      if (ret != 0)
+        return ret;
+    }
+    return 0;
+  } else {
+    fprintf(stderr, "You didn't specify any listeners? Did you even pass a config file?\n");
+    return 1;
   }
-  return 0;
 };
