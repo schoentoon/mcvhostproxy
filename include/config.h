@@ -24,6 +24,11 @@
 
 #define FORWARD_PING ((struct ping_mode*) NULL)
 
+#define STDOUT (char*) stdout
+#define STDERR (char*) stderr
+
+static char* SYSLOG = "syslog";
+
 struct ping_mode {
   char* motd;
   char* version;
@@ -41,6 +46,7 @@ struct listener {
   struct evconnlistener* listener;
   struct vhost** vhosts;
   struct ping_mode* ping_mode;
+  char* logfile;
 };
 
 struct listener* new_listener(char* address);

@@ -132,6 +132,23 @@ int parse_config(char* filename) {
           fprintf(stderr, "'%s' is invalid for pingmode, only 'forward' and 'static' are valid.\n", value);
           return 0;
         }
+      } else if (listener && !listener->logfile && strcmp(key, "logfile") == 0) {
+        if (strcmp(value, "stderr") == 0)
+          listener->logfile = STDERR;
+        else if (strcmp(value, "stdout") == 0)
+          listener->logfile = STDOUT;
+        else if (strcmp(value, SYSLOG) == 0)
+          listener->logfile = SYSLOG;
+        else {
+          FILE* f = fopen(value, "a");
+          if (f) {
+            listener->logfile = strdup(value);
+            fclose(f);
+          } else {
+            fprintf(stderr, "Error '%s'.\n", strerror(errno));
+            return 0;
+          }
+        }
       } else if (listener && strcmp(key, "vhost") == 0) {
         vhost = new_vhost(value);
         if (listener->vhosts == NULL) {
