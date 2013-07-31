@@ -26,6 +26,7 @@ struct proxyy {
   struct listener* listener;
   struct bufferevent* client;
   struct bufferevent* proxied_connection;
+  char client_ip[INET_ADDRSTRLEN];
 };
 
 struct proxyy* new_proxy(struct listener* listener, struct bufferevent* bev);

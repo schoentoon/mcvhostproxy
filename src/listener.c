@@ -50,6 +50,7 @@ static void listener_callback(struct evconnlistener* evconn, evutil_socket_t fd
   else {
     struct listener* listener = arg;
     struct proxyy* proxyy = new_proxy(listener, bev);
+    inet_ntop(AF_INET, &((struct sockaddr_in*) sa)->sin_addr, proxyy->client_ip, sizeof(proxyy->client_ip));
     bufferevent_setcb(bev, preproxy_readcb, NULL, free_on_disconnect_eventcb, proxyy);
     bufferevent_enable(bev, EV_READ);
   }

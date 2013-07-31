@@ -9,8 +9,11 @@ server-ip=127.0.0.1
 server-port=25565
 motd=A Minecraft Server
 #level-type=FLAT
-#generator-settings=2;7,3x1,52x24;2
+#generator-settings=2;7,3x1,52x42;2
+#generate-structures=false
 #gamemode=1
 EOF
 ${EDITOR:-vi} server.properties
 java -jar $JAR nogui
+cd ..
+rm -rf $TMP

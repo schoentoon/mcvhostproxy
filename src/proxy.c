@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 
 #include <event2/buffer.h>
 
@@ -44,6 +45,30 @@ void disconnect_after_write(struct bufferevent* bev, void* context) {
 };
 
 void instant_disconnect(struct bufferevent* bev, void* context) {
+  struct proxyy* proxy = context;
+  struct listener* listener = proxy->listener;
+  if (listener->logfile) {
+    char buf[BUFSIZ];
+    if (snprintf(buf, sizeof(buf), "Instantly disconnected %s.", proxy->client_ip)) {
+      if (listener->logfile == SYSLOG)
+        syslog(LOG_INFO, "%s", buf);
+      else {
+        FILE* f = NULL;
+        if (listener->logfile == STDERR)
+          f = stderr;
+        else if (listener->logfile == STDOUT)
+          f = stdout;
+        else
+          f = fopen(listener->logfile, "a");
+        if (f) {
+          fprintf(f, "%s\n", buf);
+          fflush(f);
+          if (f != stdout && f != stderr)
+            fclose(f);
+        }
+      }
+    }
+  }
   free_on_disconnect_eventcb(bev, BEV_FINISHED, context);
 };
 
@@ -96,6 +121,28 @@ void preproxy_readcb(struct bufferevent* bev, void* context) {
           bufferevent_setcb(bev, proxy_readcb, NULL, free_on_disconnect_eventcb, proxy);
           struct evbuffer* proxied_output = bufferevent_get_output(proxy->proxied_connection);
           bufferevent_read_buffer(bev, proxied_output);
+          if (listener->logfile) {
+            char buf[BUFSIZ];
+            if (snprintf(buf, sizeof(buf), "Forwarded %s to %s.", proxy->client_ip, vhost->vhost)) {
+              if (listener->logfile == SYSLOG)
+                syslog(LOG_INFO, "%s", buf);
+              else {
+                FILE* f = NULL;
+                if (listener->logfile == STDERR)
+                  f = stderr;
+                else if (listener->logfile == STDOUT)
+                  f = stdout;
+                else
+                  f = fopen(listener->logfile, "a");
+                if (f) {
+                  fprintf(f, "%s\n", buf);
+                  fflush(f);
+                  if (f != stdout && f != stderr)
+                    fclose(f);
+                }
+              }
+            }
+          }
           break;
         }
       }
@@ -206,13 +253,13 @@ void free_on_disconnect_eventcb(struct bufferevent* bev, short events, void* con
   if (!(events & BEV_EVENT_CONNECTED)) {
     if (context) {
       struct proxyy* proxy = context;
+      struct listener* listener = proxy->listener;
       struct bufferevent* to_disconnect_later = NULL;
       if (proxy->client == bev)
         to_disconnect_later = proxy->proxied_connection;
       else if (proxy->proxied_connection == bev)
         to_disconnect_later = proxy->client;
       bufferevent_free(bev);
-      free_proxy(proxy);
       if (to_disconnect_later) {
         struct evbuffer* output = bufferevent_get_output(to_disconnect_later);
         if (evbuffer_get_length(output) == 0)
@@ -221,7 +268,35 @@ void free_on_disconnect_eventcb(struct bufferevent* bev, short events, void* con
           bufferevent_setcb(to_disconnect_later, NULL, disconnect_after_write, free_on_disconnect_eventcb, NULL);
           bufferevent_enable(to_disconnect_later, EV_WRITE);
         }
+        if (listener->logfile) {
+          char buf[BUFSIZ];
+          size_t len = 0;
+          if (to_disconnect_later == proxy->proxied_connection)
+            len = snprintf(buf, sizeof(buf), "Server disconnected %s.", proxy->client_ip);
+          else if (to_disconnect_later == proxy->client)
+            len = snprintf(buf, sizeof(buf), "Client %s disconnected from server.", proxy->client_ip);
+          if (len > 0) {
+            if (listener->logfile == SYSLOG)
+              syslog(LOG_INFO, "%s", buf);
+            else {
+              FILE* f = NULL;
+              if (listener->logfile == STDERR)
+                f = stderr;
+              else if (listener->logfile == STDOUT)
+                f = stdout;
+              else
+                f = fopen(listener->logfile, "a");
+              if (f) {
+                fprintf(f, "%s\n", buf);
+                fflush(f);
+                if (f != stdout && f != stderr)
+                  fclose(f);
+              }
+            }
+          }
+        }
       }
+      free_proxy(proxy);
     } else
       bufferevent_free(bev);
   }
