@@ -49,6 +49,13 @@ struct listener {
   char* logfile;
 };
 
+static struct config {
+  struct listener** listeners;
+  unsigned char daemon : 1;
+} global_config;
+
+struct config* config;
+
 struct listener* new_listener(char* address);
 
 struct vhost* new_vhost(char* vhost);

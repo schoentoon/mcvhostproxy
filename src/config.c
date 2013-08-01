@@ -26,10 +26,6 @@
 #include <stdlib.h>
 #include <limits.h>
 
-static struct config {
-  struct listener** listeners;
-} global_config;
-
 struct config* config = &global_config;
 
 struct listener* new_listener(char* address) {
@@ -97,7 +93,9 @@ int parse_config(char* filename) {
     char key[BUFSIZ];
     char value[BUFSIZ];
     if (sscanf(linebuffer, "%[a-z_] = %[^\t\n]", key, value) == 2) {
-      if (strcmp(key, "listener") == 0) {
+      if (strcmp(key, "daemon") == 0 && strcmp(value, "true") == 0)
+        config->daemon = 1;
+      else if (strcmp(key, "listener") == 0) {
         if (config->listeners == NULL) {
           listener = new_listener(value);
           if (listener) {

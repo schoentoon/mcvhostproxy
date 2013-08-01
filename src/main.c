@@ -68,10 +68,12 @@ int main(int argc, char** argv) {
       break;
     }
   }
-  event_base = event_base_new();
-  if (dispatch_config(event_base) == 0)
-    while (event_base_dispatch(event_base) == 0);
-  else
-    return usage(argv[0]);
+  if (debug > 0 || config->daemon == 0 || (config->daemon == 1 && fork() == 0)) {
+    event_base = event_base_new();
+    if (dispatch_config(event_base) == 0)
+      while (event_base_dispatch(event_base) == 0);
+    else
+      return usage(argv[0]);
+  }
   return 0;
 };
